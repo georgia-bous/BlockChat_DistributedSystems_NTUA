@@ -8,7 +8,9 @@ from typing import List, Any
 from typing import Optional
 import hashlib
 
-from classes import Node, Block, Transaction, node_ring
+from node import Node, node_ring
+from block import Block
+from transaction import Transaction
 
 host = '127.0.0.1'
 host_port = 12345 

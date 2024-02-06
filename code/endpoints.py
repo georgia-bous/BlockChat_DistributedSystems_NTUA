@@ -2,7 +2,7 @@ from flask import request, jsonify
 #from boot import app, genesis_block
 from flask import Blueprint
 
-from classes import Node
+from node import Node
 
 #we have to define bootstrap here because we cant import it from the main program: there we import bp and it would create a circular import
 bootstrap = Node(0)

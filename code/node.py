@@ -5,6 +5,8 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography import exceptions
 
+node_ring = []
+
 class Node:
     def __init__(self, id:int, capacity:int, ring_ips:List[Any], ring_ports:List[Any], ring_pks:List[Any], ring_balances:List[Any], ring_stakes:List[Any]):
         '''
@@ -57,8 +59,18 @@ class Node:
             print('Wrong signature')
         else: print('OK!')
 
-    def validate_transaction(self, transaction):
+    #def validate_transaction(self, transaction):
 
+    #bootsrap calls it
+    #node ring is going to be a list of json objects, each one containing the attributes of a node
+    def add_to_ring(self, ip_addr: str, pubkey:str, port: int):  
+        node_info = {
+            "ip_addr": ip_addr,
+            "pubkey": pubkey,
+            "port": port
+        }
+        # Append the dictionary to the node ring list
+        node_ring.append(node_info)
 
 
 n = Node(3,5,[])
