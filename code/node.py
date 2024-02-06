@@ -1,176 +1,80 @@
-import socket
-import threading
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-import time
-from typing import List, Any
-from typing import Optional
-import hashlib
-
-host='127.0.0.1'
-port=12345
-
-capacity=5
-n=2
-nodes_ipaddr=[]
-nodes_pubkeys=[]
-ports=[]
-id=0
-wallet = None
-#transactions=[]
-nonce=0
-
-is_bootstrap = True
-
-
-
-class Block:
-    def __init__(self, index: int, transactions: List[Any], validator: str, previous_hash: str):
-        self.index = index
-        self.timestamp = time.time()
-        self.transactions = transactions
-        self.validator = validator
-        self.previous_hash = previous_hash
-        self.current_hash = self.calculate_hash()
-
-    def calculate_hash(self):
-        """
-        Calculates the hash of the block using SHA-256 algorithm.
-        """
-        block_string = f"{self.index}{self.timestamp}{self.transactions}{self.validator}{self.previous_hash}".encode()
-        return hashlib.sha256(block_string).hexdigest()
-
-
-    def add_transaction(self, transaction):
-        self.transactions.append(transaction)
-
-class Transaction:
-    def __init__(self, sender_address: str, receiver_address: str, type_of_transaction: str, amount: Optional[float] = 0, message: Optional[str] = ''):
-        global nonce
-        self.sender_address = sender_address
-        self.receiver_address = receiver_address
-        self.type_of_transaction = type_of_transaction
-        self.amount = amount
-        self.message = message
-        self.nonce = nonce
-        self.transaction_id = self.calculate_transaction_id()
-
-    def calculate_transaction_id(self):
-        """
-        Calculates the hash of the transaction using SHA-256 algorithm.
-        """
-        tx_content = f"{self.sender_address}{self.receiver_address}{self.type_of_transaction}{self.amount}{self.message}{self.nonce}".encode()
-        return hashlib.sha256(tx_content).hexdigest()
-
-class Wallet:
-    def __init__(self):
-        self.private_key, self.public_key = self.generate_wallet()
-        self.coins = 0
-
-    def generate_wallet():
-        private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
-        )
-
-        public_key = private_key.public_key()
-
-        # Serialize private key
-        pem_private_key = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-
-        # Serialize public key
-        pem_public_key = public_key.public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-
-        return pem_private_key.decode(), pem_public_key.decode()
-    
-
+from wallet import Wallet
+from transaction import Transaction
+from typing import List, Any , Optional
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography import exceptions
 
 class Node:
-    def __init__(self, id:int):
+    def __init__(self, id:int, capacity:int, ring_ips:List[Any], ring_ports:List[Any], ring_pks:List[Any], ring_balances:List[Any], ring_stakes:List[Any]):
+        '''
+        Args:
+            ring_ips: ip for every node in the ring
+            ring_ports: port for every node in the ring
+            ring_pks: publik key of every node in the ring, required to send them coins
+            ring_balances: balance of every node
+            ring_stakes: stakes currently declared by every node, required to validate transactions
+        '''
         self.id = id
-        wallet = Wallet()
-        self.ring = []  
+        self.wallet = Wallet()
+        self.ring_ips = ring_ips
+        self.ring_ports = ring_ports
+        self.ring_pks = ring_pks
+        self.ring_balances = ring_balances
+        self.ring_stakes = ring_stakes  
+        self.nonce = 0
+        self.transactions = []
+        self.capacity = capacity 
 
-    def add_to_ring():  
+    def create_transaction(self, sender_address, receiver_address, type_of_transaction, amount:Optional[float], message:Optional[str]):
+        transaction = Transaction(sender_address, receiver_address, type_of_transaction, self.nonce, amount, message)
+        self.nonce+= 1
+        return transaction
+
+    def sign_transaction(self, transaction):
+        hash = transaction.transaction_id.encode() # Make the hash digest which is a string, a byte object
+        private_key = self.wallet.private_key
+        signature = private_key.sign(
+            hash,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH),
+            hashes.SHA256())
+        return signature
+    
+    def verify_signature(self, transaction, signature):
+        pk = transaction.as_dict()['sender_adress'] # sender_adress is the public key of the sender
+        try:
+            pk.verify(
+                signature,
+                transaction.transaction_id.encode(), # In sign_transaction we use the encoded id, so we do the same here
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256())
+        except exceptions.InvalidSignature as e:
+            print('Wrong signature')
+        else: print('OK!')
+
+    def validate_transaction(self, transaction):
+
+
+
+n = Node(3,5,[])
+t = n.create_transaction('a','b','msg',100,None)
+print(t.as_dict())
+s = n.sign_transaction(t)
+pk = n.wallet.public_key
+n.verify_signature(t,s,pk)
+    
+   # def add_to_ring():  
 '''
-def bootstrap_recv():
+    def bootstrap_recv():
 
-def coin_sending():
+    def coin_sending():
 
-def mess_sending():
+    def mess_sending():
 
-def broadcast():
+    def broadcast():
 '''
-def create_transaction(current_block, sender_address, receiver_address, type_of_transaction, amount=0, message=''):
-    global nonce
-    transaction = Transaction(sender_address, receiver_address, type_of_transaction, amount, message)
-    current_block.transactions.append(transaction)
-    nonce+= 1
-'''
-def start_server():
-    global host
-    global port
-    global wallet
-    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_sock.bind((host, port))
-    server_sock.listen()
-    print(f"Listening for connections on {host}:{port}...")
-
-    conn, addr = server_sock.accept()
-    print(f"Connected by {addr}")
-    node_id=len(nodes_ipaddr)
-    nodes_ipaddr.append(addr[0])
-    ports.append(addr[1])
-    data = conn.recv(1024).decode('utf-8')
-    nodes_pubkeys.append(data)
-    print("Received Public Key:", data)
-    conn.send(str(node_id).encode('utf-8'))
-    trans_send1000 = Transaction(wallet.public_key, data, 'coins', 1000, '')
-
-
-def main():
-    global host
-    global port
-    global wallet
-    wallet = Wallet()
-    print("Public Key:", wallet.public_key)
-    print("Private Key:", wallet.private_key)
-    print("Coins:", wallet.coins)
-    genesis_block= Block(index=0, transactions=[], validator=0, previous_hash='1')
-    create_transaction(genesis_block, 0, wallet.public_key, 'coins', 1000*n)
-    nodes_ipaddr.append(host)
-    ports.append(port)
-    nodes_pubkeys.append(wallet.public_key)
-    start_server()
-'''
-
-from Flask import Flask
-from Flask_restful import Api, Resource
-
-app = Flask(__name__)
-api = Api(app)
-genesis_block = None
-
-def main():
-    if is_bootstrap :
-        node = Node(0)
-        genesis_block = Block(index=0, transactions=[], validator=0, previous_hash='1')
-        #create_transaction(genesis_block, 0, node.wallet.public_key, 'coins', 1000*n)
-        
-    else : 
-
-
-
-if __name__ =="__main__":
-    #specify address and port for each node
-    app.run(debug=True)
-    main()
