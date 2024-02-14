@@ -1,4 +1,4 @@
-from node import Node
+#from node import Node
 from block import Block
 from transaction import Transaction
 
@@ -6,7 +6,8 @@ from flask import Flask
 from flask_restful import Api, Resource
 import requests
 from threading import Thread
-from endpoints import bp, bootstrap
+from endpoints import bp, node
+from blockchain import Blockchain
 from flask import g
 import argparse
 from typing import List, Any , Optional
@@ -39,9 +40,11 @@ host = '127.0.0.1'
 host_port = 12345 
 
 ip_addr = '127.0.0.1'
-port = 12345
-is_bootstrap = True
-n=3
+port = 34567
+is_bootstrap = False
+nnodes=3
+stake = 10
+capacity = 5
 
 
 app = Flask(__name__)
@@ -52,24 +55,32 @@ app.register_blueprint(bp)
 
 
 def main():
-    global n
+    node.capacity = capacity
+    node.stake = stake
+    node.nnodes = nnodes
+
     if is_bootstrap :
-        bootstrap.add_to_ring(host, bootstrap.wallet.public_key, host_port)
-        genesis_block = Block(index=0, transactions=[], validator=0, previous_hash='1')
-        bootstrap.block = genesis_block
-        bootstrap.create_transaction(0, bootstrap.wallet.public_key, 'coins', 1000*n)
+        node.id = 'id0'
+        node.add_to_ring(host, node.wallet.pubkey_serialised(), host_port)
+        first_transaction = node.create_transaction(0, node.wallet.public_key, 'coins', 1000*nnodes)
+        genesis_block = Block(index=0, transactions=[first_transaction], validator=0, previous_hash='1')
+        node.blockchain.add_block_to_chain(genesis_block) #no validation for genesis
+
         
     else : 
         global ip_addr
         global port
         my_data = {
             'ip_address': ip_addr,
-            'port': port
+            'port': port,
+            'pubkey': node.wallet.pubkey_serialised()
         }
         bootstrap_url = f'http://{host}:{host_port}/register_node'
         response = requests.post(bootstrap_url, json=my_data)
-        print(f"Bootstrap node responded: {response.json()}")
-
+        response_data=response.json()
+        print(f"Bootstrap node responded: {response_data['message']}")
+        node.id = 'id' + str(response_data['id'])
+        print(node.id)
 
 def run_flask_app():
     global ip_addr

@@ -33,3 +33,11 @@ class Wallet:
         )
         '''
         return private_key, public_key
+    
+    def pubkey_serialised(self):
+        public_key_pem = self.public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode('utf-8')
+        
+        return public_key_pem
