@@ -40,11 +40,11 @@ host = '127.0.0.1'
 host_port = 12345 
 
 ip_addr = '127.0.0.1'
-port = 34567
+port = 12347
 is_bootstrap = False
 nnodes=3
 stake = 10
-capacity = 5
+capacity = 1
 
 
 app = Flask(__name__)

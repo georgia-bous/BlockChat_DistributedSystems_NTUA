@@ -41,3 +41,4 @@ class Wallet:
         ).decode('utf-8')
         
         return public_key_pem
+        

@@ -3,13 +3,16 @@ import time
 import hashlib
 
 class Block:
-    def __init__(self, index: int, transactions: List[Any] = [], validator: str = None, previous_hash: str = None):
+    def __init__(self, index: int, transactions: List[Any] = [], validator: str = None, previous_hash: str = None, t=None, hash=None):
         self.index = index
-        self.timestamp = time.time()
+        self.timestamp = time.time() if t is None else t
         self.transactions = transactions
         self.validator = validator
         self.previous_hash = previous_hash
-        self.current_hash = self.calculate_hash()
+        self.current_hash = hash if hash else self.calculate_hash()
+        if hash and self.current_hash != hash:
+            print('DIFFERENT HASHES')
+            print(self.as_serialised_dict())
 
     def calculate_hash(self):
         """
@@ -21,3 +24,14 @@ class Block:
 
     def add_transaction(self, transaction):
         self.transactions.append(transaction)
+
+    def as_serialised_dict(self):
+        result = {}
+        result['index'] = self.index
+        result['timestamp'] = self.timestamp
+        result['transactions'] = [trans.as_serialised_dict() for trans in self.transactions]
+        result['validator'] = self.validator
+        result['previous_hash'] = self.previous_hash
+        result['current_hash'] = self.current_hash
+
+        return result

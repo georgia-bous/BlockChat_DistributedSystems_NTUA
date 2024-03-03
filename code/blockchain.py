@@ -6,3 +6,8 @@ class Blockchain:
 
     def add_block_to_chain(self, block):
         self.blocks.append(block)
+
+    def as_serialised_dict(self):
+        result = {}
+        result['blockchain'] = [block.as_serialised_dict() for block in self.blocks]
+        return result
