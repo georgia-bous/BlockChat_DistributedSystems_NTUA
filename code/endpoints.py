@@ -62,6 +62,27 @@ def deserialize(block_list):
 
     return result
 
+def deserialize_block(ser_block):
+    index = ser_block['index']
+    timestamp = ser_block['timestamp']
+    validator = ser_block['validator']
+    previous_hash = ser_block['previous_hash']
+    current_hash = ser_block['current_hash']
+
+    transactions = []
+    for transaction_dict in ser_block['transactions']:
+        sender = transaction_dict['sender_address']
+        receiver = transaction_dict["receiver_address"]
+        type = transaction_dict["type"]
+        n = transaction_dict['nonce']
+        am = transaction_dict['amount']
+        msg = transaction_dict['message']
+        id = transaction_dict['transaction_id']
+        trans = Transaction(sender_address = sender, receiver_address=receiver, type_of_transaction=type, nonce = n, amount=am, message=msg, id=id)
+        transactions.append(trans)
+       
+    block = Block(index=index, transactions=transactions, validator=validator, previous_hash=previous_hash, t=timestamp, hash=current_hash)
+    return block
 
 #called when bootstrap broadcasts the blockchain
 @bp.route('/update_blockchain', methods=['POST'])
@@ -80,6 +101,23 @@ def update_blockchain():
     node.blockchain = blockchain
     print(node.blockchain)  
     return jsonify({"message": "Blockchain updated successfully"}), 200
+
+@bp.route('/add_block', methods=['POST'])
+def add_block():
+    global node
+    data = request.get_json()
+    data = json.loads(data)
+    print(data)
+    print('-----------------------------------------------------------')
+    block = deserialize_block(data['block'])
+    prev_block = node.blockchain.blocks[-1]
+
+    if not node.validate_block(block, prev_block):
+        return jsonify({"message": "Block validation failed."}), 400
+
+    node.blockchain.add_block_to_chain(block)
+
+    return jsonify({"message": "Block added successfully"}), 200
 
 #invoked when login phase is complete, in order to start making transactions
 @bp.route('/start_transactions', methods=['POST'])

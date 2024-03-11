@@ -2,6 +2,7 @@ from wallet import Wallet
 from transaction import Transaction
 from typing import List, Any , Optional
 from flask import jsonify
+import random
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography import exceptions
@@ -205,7 +206,7 @@ class Node:
                 node_dict = self.node_ring[sender] 
                 node_dict['balance'] -= trans.transaction_amount()
 
-                print([node['balance'] for k,node in self.node_ring.items()])
+                print('balances after trans', [node['balance'] for k,node in self.node_ring.items()])
 
                 if len(self.transactions) == self.capacity:
                     self.mint_block()
@@ -219,12 +220,40 @@ class Node:
             if block.validator != self.bootstrap_pk:
                 return False
         
-        # Todo run the PRG to check the validator in case of login being complete.
+        # If login is over, we run the rullete to find the validator
+        if self.login_complete:
+            if block.validator != self.rulette(prev_hash=prev_block.current_hash):
+                return False
 
         if block.previous_hash != prev_block.current_hash:
             return False
         
+        # Run through the transactions of the block and update the recipient balances.
+        if self.login_complete:
+            self.update_recipient_balances(block)
+
+        print('balances after blcok validate ',[node['balance'] for k,node in self.node_ring.items()])            
         return True
+    
+    def update_recipient_balances(self,block):
+        for trans in block.transactions:
+            # delete from list of pending transactions, if its still there.
+            for i in range(len(self.transactions)):
+                if self.transactions[i].transaction_id == trans.transaction_id:
+                    del self.transactions[i]
+
+            if trans.type_of_transaction == 'coins':
+                recipient = trans.as_serialised_dict()['receiver_address']
+
+                amount = trans.amount
+
+                # Update recipient balance
+                self.node_ring[recipient]['balance'] += amount
+
+                # Give 3% to the block validator
+                validator = block.validator
+                self.node_ring[validator]['balance'] += amount*0.03
+
 
     def validate_chain(self, chain:Blockchain):
         self.bootstrap_pk = chain.blocks[0].transactions[0].receiver_address
@@ -297,7 +326,12 @@ class Node:
         rec = list(self.node_ring.values())[1]['pubkey']
         if rec == self.wallet.pubkey_serialised():
             rec = list(self.node_ring.values())[0]['pubkey']
-        self.create_transaction(self.wallet.public_key, rec, 'message',message='Hello')
+        self.create_transaction(self.wallet.public_key, rec, 'coins',amount=100)
+
+        rec = list(self.node_ring.values())[2]['pubkey']
+        if rec == self.wallet.pubkey_serialised():
+            rec = list(self.node_ring.values())[1]['pubkey']
+        self.create_transaction(self.wallet.public_key, rec, 'coins',amount=100)
 
     #bootstrap calls it
     def broadcast_node_ring(self):
@@ -333,6 +367,34 @@ class Node:
                 except Exception as e:
                     print(f"Error broadcasting blockchain to {node['ip_addr']}: {e}")
 
+    # Helper for mint_block random sampling
+    # Runs the rulette that picks the validator, based on the stakes.
+    # Returns the validator public key
+    def rulette(self, prev_hash):
+        # Sort the node_ring dictionary on the public keys, to ensure that all nodes see the same order.
+        # The result ring_list is a list of pairs.
+        # First element of the pair is the node public key (serialised).
+        # Second element of the pair is the node dictionary with the node info (balance,stake,ip...)
+        ring_list = sorted(list(self.node_ring.items()))
+        hash = prev_hash
+        seed = int(hash, 16) % (10 ** 16)
+        random.seed(seed)
+        random_number = random.random()
+
+        # Perform the random sampling, based on the stakes.
+        sum=0
+        for _,node_dict in ring_list:
+            sum += node_dict['stake']
+            
+        x=0
+        list1=[]
+        for _,node_dict in ring_list:
+            list1.append(x+node_dict['stake']/sum)
+            x=x+node_dict['stake']/sum
+        #list1 contains cumulative sum
+        for i in range (0,len(list1)):
+            if random_number<list1[i]:
+                return ring_list[i][0] # public key of the validator.
 
     def mint_block(self):
         #PoS -> validator will create block with transactions and broadcast it -> nodes will validate it and receivers will update their wallets
@@ -350,8 +412,39 @@ class Node:
         
             # Empty the transactions
             self.transactions = []
-        else:
-            return
+        else: # Login phase is over, so we mint by drawing a random generator.
+            validator_pk = self.rulette(prev_hash=self.blockchain.blocks[-1].current_hash)
+            # If validator is myself, I create a block and broadcast it, identical to above. 
+            # Else nothing happens.            
+            if self.wallet.pubkey_serialised() == validator_pk:
+                print('I AM VALIDATING BLOCK')
+                i=len(self.blockchain.blocks)
+                t=list(self.transactions)
+                val=self.wallet.pubkey_serialised()
+                hash = self.blockchain.blocks[-1].current_hash
+                block = Block(index=i, transactions=t, validator=val, previous_hash=hash)
+
+                self.transactions = []
+                self.blockchain.add_block_to_chain(block)
+
+                if self.validate_block(block, prev_block=self.blockchain.blocks[-1]):
+                    self.broadcast_block(block)
 
         return
 
+    def broadcast_block(self, block):
+        block_data = {'block': block.as_serialised_dict()}
+
+        block_json = json.dumps(block_data)
+        for k,node in self.node_ring.items():
+            if node['pubkey'] != self.wallet.pubkey_serialised():
+                url = f"http://{node['ip_addr']}:{node['port']}/add_block"
+                try:
+                    response = requests.post(url, json=block_json)
+                    if response.status_code == 200:
+                        print(f"Block broadcasted successfully to {node['ip_addr']}")
+                    else:
+                        print(f"Failed to broadcast block to {node['ip_addr']}")
+                    print(f"Node responded: {response.json()}")
+                except Exception as e:
+                    print(f"Error broadcasting block to {node['ip_addr']}: {e}")
