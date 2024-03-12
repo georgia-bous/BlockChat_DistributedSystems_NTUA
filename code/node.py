@@ -46,6 +46,7 @@ class Node:
         self.login_complete = False
         self.start_transactions = False
         self.bootstrap_pk = None
+        self.seen = set()
 
     #sender and receiver address are in byte format for hash
     def create_transaction(self, sender_address, receiver_address, type_of_transaction, amount= None, message= None):
@@ -67,6 +68,10 @@ class Node:
         if len(self.transactions) == self.capacity:
             #execute the transactions in the list for the receivers side
             self.mint_block()
+            self.transactions = []
+        else:                    
+            print('Not minting because transaction length is: ', len(self.transactions))
+
         return transaction
 
 
@@ -190,7 +195,7 @@ class Node:
             
             # If login is done, we keep the transaction. 
             # Afterwards, we check if we need to mint a block.
-            if self.login_complete:
+            if self.login_complete:    
                 sender = transaction_dict['sender_address']
                 receiver = transaction_dict["receiver_address"]
                 type = transaction_dict["type"]
@@ -199,8 +204,6 @@ class Node:
                 msg = transaction_dict['message']
                 id = transaction_dict['transaction_id']
                 trans = Transaction(sender_address = sender, receiver_address=receiver, type_of_transaction=type, nonce = n, amount=am, message=msg, id=id)
-                
-                self.transactions.append(trans)
 
                 # Update the sender balance.
                 node_dict = self.node_ring[sender] 
@@ -208,8 +211,15 @@ class Node:
 
                 print('balances after trans', [node['balance'] for k,node in self.node_ring.items()])
 
-                if len(self.transactions) == self.capacity:
-                    self.mint_block()
+                # Add the recieved transaction, only if it has not been seen in a previous block!
+                if id not in self.seen:    
+                    self.transactions.append(trans)
+
+                    if len(self.transactions) == self.capacity:
+                        self.mint_block()
+                        self.transactions = []
+                    else:
+                        print('Not minting because transaction length is: ', len(self.transactions))
 
             return True
 
@@ -218,14 +228,17 @@ class Node:
         # Check the validator. If login is not complete, it should always be the bootstrap.
         if not self.login_complete:
             if block.validator != self.bootstrap_pk:
+                print('validation fails case 1')
                 return False
         
         # If login is over, we run the rullete to find the validator
         if self.login_complete:
             if block.validator != self.rulette(prev_hash=prev_block.current_hash):
+                print('validation fails case 2')
                 return False
 
         if block.previous_hash != prev_block.current_hash:
+            print('validation fails case 3')
             return False
         
         # Run through the transactions of the block and update the recipient balances.
@@ -236,24 +249,27 @@ class Node:
         return True
     
     def update_recipient_balances(self,block):
+        print('Validating block from minter', block.validator)
         for trans in block.transactions:
             # delete from list of pending transactions, if its still there.
             for i in range(len(self.transactions)):
                 if self.transactions[i].transaction_id == trans.transaction_id:
                     del self.transactions[i]
 
-            if trans.type_of_transaction == 'coins':
-                recipient = trans.as_serialised_dict()['receiver_address']
+            if trans.transaction_id not in self.seen:
+                if trans.type_of_transaction == 'coins':
+                    recipient = trans.as_serialised_dict()['receiver_address']
 
-                amount = trans.amount
+                    amount = trans.amount
 
-                # Update recipient balance
-                self.node_ring[recipient]['balance'] += amount
+                    # Update recipient balance
+                    self.node_ring[recipient]['balance'] += amount
 
-                # Give 3% to the block validator
-                validator = block.validator
-                self.node_ring[validator]['balance'] += amount*0.03
+                    # Give 3% to the block validator
+                    validator = block.validator
+                    self.node_ring[validator]['balance'] += amount*0.03
 
+                self.seen.add(trans.transaction_id)
 
     def validate_chain(self, chain:Blockchain):
         self.bootstrap_pk = chain.blocks[0].transactions[0].receiver_address
@@ -313,16 +329,20 @@ class Node:
                 url = f"http://{node['ip_addr']}:{node['port']}/start_transactions"
                 try:
                     response = requests.post(url)
-                    if response.status_code == 200:
+                    '''if response.status_code == 200:
                         print(f"Transactions start successfully on {node['ip_addr']}")
                     else:
-                        print(f"Failed to start transactions on {node['ip_addr']}")
-                    print(f"Node responded: {response.json()}")
+                        print(f"Failed to start transactions on {node['ip_addr']}")'''
+                    #print(f"Node responded: {response.json()}")
                 except Exception as e:
                     print(f"Error starting transactions on {node['ip_addr']}: {e}")
 
+        self.test()
+
     # Send a test transaction after we initiate them.
     def test(self):
+        print('Login is', self.login_complete)
+        print('Transactions are', self.start_transactions)
         rec = list(self.node_ring.values())[1]['pubkey']
         if rec == self.wallet.pubkey_serialised():
             rec = list(self.node_ring.values())[0]['pubkey']
@@ -340,11 +360,11 @@ class Node:
                 url = f"http://{node['ip_addr']}:{node['port']}/update_node_ring"
                 try:
                     response = requests.post(url, json={"node_ring": self.node_ring})
-                    if response.status_code == 200:
+                    '''if response.status_code == 200:
                         print(f"Node ring broadcasted successfully to {node['ip_addr']}")
                     else:
-                        print(f"Failed to broadcast to {node['ip_addr']}")
-                    print(f"Node responded: {response.json()}")
+                        print(f"Failed to broadcast to {node['ip_addr']}")'''
+                    #print(f"Node responded: {response.json()}")
                 except Exception as e:
                     print(f"Error broadcasting to {node['ip_addr']}: {e}")
 
@@ -359,11 +379,11 @@ class Node:
                 url = f"http://{node['ip_addr']}:{node['port']}/update_blockchain"
                 try:
                     response = requests.post(url, json=blockchain_json)
-                    if response.status_code == 200:
+                    '''if response.status_code == 200:
                         print(f"Blockchain broadcasted successfully to {node['ip_addr']}")
                     else:
                         print(f"Failed to broadcast blockchain to {node['ip_addr']}")
-                    print(f"Node responded: {response.json()}")
+                    print(f"Node responded: {response.json()}")'''
                 except Exception as e:
                     print(f"Error broadcasting blockchain to {node['ip_addr']}: {e}")
 
@@ -427,7 +447,7 @@ class Node:
                 self.transactions = []
                 self.blockchain.add_block_to_chain(block)
 
-                if self.validate_block(block, prev_block=self.blockchain.blocks[-1]):
+                if self.validate_block(block, prev_block=self.blockchain.blocks[-2]):
                     self.broadcast_block(block)
 
         return
