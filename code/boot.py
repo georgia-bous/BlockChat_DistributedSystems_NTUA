@@ -44,7 +44,7 @@ port = 12347
 is_bootstrap = False
 nnodes=3
 stake = 10
-capacity = 1
+capacity = 5
 
 
 app = Flask(__name__)
@@ -61,7 +61,7 @@ def main():
 
     if is_bootstrap :
         node.id = 'id0'
-        node.add_to_ring(host, node.wallet.pubkey_serialised(), host_port)
+        node.add_to_ring(host, node.wallet.pubkey_serialised(), host_port, node.id)
         first_transaction = node.create_transaction(0, node.wallet.public_key, 'coins', 1000*nnodes)
         genesis_block = Block(index=0, transactions=[first_transaction], validator=0, previous_hash='1')
         node.blockchain.add_block_to_chain(genesis_block) #no validation for genesis
