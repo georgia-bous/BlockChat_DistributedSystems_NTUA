@@ -20,7 +20,8 @@ def register_node():
     node_ipaddr = data['ip_address']
     node_port = data['port']
     node_pubkey = data['pubkey']
-    node.add_to_ring(node_ipaddr, node_pubkey, node_port)
+    node_id = 'id' + str(len(node.node_ring))
+    node.add_to_ring(node_ipaddr, node_pubkey, node_port, node_id)
     print(node.wallet.coins)
     return jsonify({"message": "Node registered successfully", "id": len(node.node_ring)-1}), 200
 

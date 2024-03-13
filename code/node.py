@@ -3,6 +3,7 @@ from transaction import Transaction
 from typing import List, Any , Optional
 from flask import jsonify
 import random
+import re
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography import exceptions
@@ -288,13 +289,14 @@ class Node:
 
     #bootsrap calls it
     #node ring is going to be a list of json objects, each one containing the attributes of a node
-    def add_to_ring(self, ip_addr: str, pubkey_str:str, port: int): 
+    def add_to_ring(self, ip_addr: str, pubkey_str:str, port: int, node_id:str): 
         node_info = {
             "ip_addr": ip_addr,
             "pubkey": pubkey_str,
             "port": port,
             "stake": 10,
-            "balance": 1000
+            "balance": 1000,
+            "id": node_id
         }
             
         # add node to ring
@@ -343,15 +345,54 @@ class Node:
     def test(self):
         print('Login is', self.login_complete)
         print('Transactions are', self.start_transactions)
-        rec = list(self.node_ring.values())[1]['pubkey']
+
+        # Hardcoded transactions for debugging
+        '''rec = list(self.node_ring.values())[1]['pubkey']
         if rec == self.wallet.pubkey_serialised():
             rec = list(self.node_ring.values())[0]['pubkey']
-        self.create_transaction(self.wallet.public_key, rec, 'coins',amount=100)
+        self.create_transaction(self.wallet.public_key, rec, 'message',message='HELLO')
 
         rec = list(self.node_ring.values())[2]['pubkey']
         if rec == self.wallet.pubkey_serialised():
             rec = list(self.node_ring.values())[1]['pubkey']
-        self.create_transaction(self.wallet.public_key, rec, 'coins',amount=100)
+        self.create_transaction(self.wallet.public_key, rec, 'message',message='HELLO')'''
+
+        # Real transactions from input files.
+        id = self.node_ring[self.wallet.pubkey_serialised()]['id']
+        number_part = id[2:]  # Get input file name
+        # TODO change this directory if its working on linux
+        input_file = 'code\\input\\trans' + number_part + '.txt'
+        self.parse_file(input_file)
+
+    # Helper that parses the input file, gets the messages from each line, and sends them as transactions.
+    def parse_file(self, input_file):
+        with open(input_file, 'r') as file:
+            lines = file.readlines()
+        
+        # Regular expression pattern to match 'id' followed by a number and the message
+        pattern = r'id(\d+)\s(.+)'
+        id_str = None
+        message_str = None
+
+        for line in lines:
+            # Use regular expression to find matches
+            match = re.match(pattern, line)
+            if match:
+                # Extract id and message from the match
+                id_str = 'id'+match.group(1)
+                message_str = match.group(2)
+            
+            recipient_pk = None
+            # Retrieve the recipient public key, by its id
+            for pk, node_dict in self.node_ring.items():
+                if node_dict['id'] == id_str:
+                    recipient_pk = pk
+                    break
+            
+            # TODO change this if we are running with more nodes.
+            if id_str <= 'id2':
+                self.create_transaction(self.wallet.public_key, recipient_pk, 'message',message=message_str)
+
 
     #bootstrap calls it
     def broadcast_node_ring(self):
