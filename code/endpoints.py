@@ -6,12 +6,14 @@ from transaction import Transaction
 from block import Block
 import json
 from node import Node
+import logging
 
 #we have to define node here because we cant import it from the main program: there we import bp and it would create a circular import
 node = Node()
 
 bp = Blueprint('endpoints', __name__)
-
+logging.basicConfig(filename='app.log', level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 #node sends to bootstrap its info and he adds it to the ring and sends it the next id
 @bp.route('/register_node', methods=['POST'])
 def register_node():
@@ -22,7 +24,7 @@ def register_node():
     node_pubkey = data['pubkey']
     node_id = 'id' + str(len(node.node_ring))
     node.add_to_ring(node_ipaddr, node_pubkey, node_port, node_id)
-    print(node.wallet.coins)
+    #logging.info(node.wallet.coins)
     return jsonify({"message": "Node registered successfully", "id": len(node.node_ring)-1}), 200
 
 #called when bootstrap broadcasts the nodering
@@ -32,7 +34,7 @@ def update_node_ring():
     data = request.get_json()
     node_ring = data['node_ring']
     node.node_ring = node_ring
-    print(node.node_ring)  
+    #logging.info(node.node_ring)  
     return jsonify({"message": "Node ring updated successfully"}), 200
 
 def deserialize(block_list):
@@ -91,8 +93,8 @@ def update_blockchain():
     global node
     data = request.get_json()
     data = json.loads(data)
-    print(data)
-    print('-----------------------------------------------------------')
+    #logging.info(data)
+    #logging.info('-----------------------------------------------------------')
     block_list = deserialize(data['blockchain'])
 
     blockchain = Blockchain(block_list)
@@ -100,7 +102,9 @@ def update_blockchain():
         return jsonify({"message": "Chain validation failed."}), 400
 
     node.blockchain = blockchain
-    print(node.blockchain)  
+    #logging.info(node.blockchain)  
+    #for debugging
+    #logging.info("------------------------ update -------------------")
     return jsonify({"message": "Blockchain updated successfully"}), 200
 
 @bp.route('/add_block', methods=['POST'])
@@ -108,8 +112,8 @@ def add_block():
     global node
     data = request.get_json()
     data = json.loads(data)
-    print(data)
-    print('-----------------------------------------------------------')
+    #logging.info(data)
+    #logging.info('-----------------------------------------------------------')
     block = deserialize_block(data['block'])
     prev_block = node.blockchain.blocks[-1]
 
@@ -123,6 +127,7 @@ def add_block():
 #invoked when login phase is complete, in order to start making transactions
 @bp.route('/start_transactions', methods=['POST'])
 def start_transactions():
+    #logging.info("================ Start_Transactions was called =========================")
     global node
     node.start_transactions = True
     node.test()
