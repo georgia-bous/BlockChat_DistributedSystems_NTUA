@@ -11,7 +11,8 @@ from blockchain import Blockchain
 from flask import g
 import argparse
 from typing import List, Any , Optional
-
+from multiprocessing import Process
+import logging
 
 '''
 #for input from cli, not ready yet
@@ -40,11 +41,11 @@ host = '127.0.0.1'
 host_port = 12345 
 
 ip_addr = '127.0.0.1'
-port = 12347
+port = 12348
 is_bootstrap = False
-nnodes=3
+nnodes=4
 stake = 10
-capacity = 5
+capacity = 3
 
 
 app = Flask(__name__)
@@ -52,8 +53,8 @@ api = Api(app)
 genesis_block = None
 
 app.register_blueprint(bp)
-
-
+logging.basicConfig(filename='app.log', level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 def main():
     node.capacity = capacity
     node.stake = stake
@@ -78,16 +79,22 @@ def main():
         bootstrap_url = f'http://{host}:{host_port}/register_node'
         response = requests.post(bootstrap_url, json=my_data)
         response_data=response.json()
-        print(f"Bootstrap node responded: {response_data['message']}")
+        #logging.info(f"Bootstrap node responded: {response_data['message']}")
         node.id = 'id' + str(response_data['id'])
-        print(node.id)
+        #logging.info(node.id)
+        #node.create_cli()
 
 def run_flask_app():
     global ip_addr
     global port
-    app.run(host= ip_addr, port=port, debug=False)
+    #app.debug = True
+    app.run(host= ip_addr, port=port, debug=True,use_reloader=False)
 
 if __name__ =="__main__":
     flask_thread = Thread(target=run_flask_app)
     flask_thread.start()
+    cli_thread = Thread(target=node.create_cli)
+    cli_thread.start()
+
+    #cli_process.join()  # Wait for the CLI process to finish if needed
     main()
