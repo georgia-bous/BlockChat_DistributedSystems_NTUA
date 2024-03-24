@@ -35,3 +35,10 @@ class Block:
         result['current_hash'] = self.current_hash
 
         return result
+    
+    
+    def block_transactions(self):
+        return self.transactions
+    
+    def block_validator(self):
+        return self.validator
