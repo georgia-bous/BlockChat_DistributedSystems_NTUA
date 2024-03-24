@@ -4,6 +4,8 @@ from typing import List, Any , Optional
 from flask import jsonify
 import random
 import re
+import argparse
+import sys
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography import exceptions
@@ -15,6 +17,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from block import Block
 from blockchain import Blockchain
+import logging
 '''
 #keep them stable or find a way to take them from main, cannot import
 n=3
@@ -49,6 +52,9 @@ class Node:
         self.bootstrap_pk = None
         self.seen = set()
 
+        logging.basicConfig(filename='app.log', level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
     #sender and receiver address are in byte format for hash
     def create_transaction(self, sender_address, receiver_address, type_of_transaction, amount= None, message= None):
         transaction = Transaction(sender_address, receiver_address, type_of_transaction, self.nonce, amount, message)
@@ -71,7 +77,8 @@ class Node:
             self.mint_block()
             self.transactions = []
         else:                    
-            print('Not minting because transaction length is: ', len(self.transactions))
+            #logging.info('Not minting because transaction length is: ', len(self.transactions))
+            pass
 
         return transaction
 
@@ -82,14 +89,14 @@ class Node:
             response = requests.post(node_url, json=transaction_json, headers={'Content-Type': 'application/json'})
 
             if response.status_code == 200:
-                print(f"Transaction successfully sent to {node['ip_addr']}:{node['port']}")
+                #print(f"Transaction successfully sent to {node['ip_addr']}:{node['port']}")
                 return True #the transaction was validated
             else:
-                print(f"Failed to send transaction to {node['ip_addr']}:{node['port']}. Response code: {response.status_code}")
+                #logging.info(f"Failed to send transaction to {node['ip_addr']}:{node['port']}. Response code: {response.status_code}")
                 return False #the transaction was not validated
         
         except requests.exceptions.RequestException as e:
-            print(f"Error sending transaction to {node['ip_addr']}:{node['port']}: {e}")
+            #logging.info(f"Error sending transaction to {node['ip_addr']}:{node['port']}: {e}")
             return False
 
 
@@ -114,7 +121,7 @@ class Node:
         # use threads to send the transaction to each node
         for _,node in self.node_ring.items():
             if node['pubkey'] != self.wallet.pubkey_serialised():
-                print(node['port'])
+                #logging.info(node['port'])
                 t = threading.Thread(target=thread_target, args=(node, transaction_json,))
                 threads.append(t)
                 t.start()
@@ -124,7 +131,7 @@ class Node:
             t.join()
 
         if all(validation_statuses):
-            print("All nodes validated the transaction.")
+            #logging.info("All nodes validated the transaction.")
             self.transactions.append(transaction)
             self.nonce+= 1
             #self.wallet.coins -= transaction.transaction_amount(is_boot_transaction = True)
@@ -132,10 +139,11 @@ class Node:
             if self.start_transactions: 
                 node_dict['balance'] -= transaction.transaction_amount(is_boot_transaction = not self.start_transactions)
 
-            print([node['balance'] for k,node in self.node_ring.items()])
+            #logging.info([node['balance'] for k,node in self.node_ring.items()])
 
         else:
-            print("One or more nodes failed to validate the transaction.")
+            #logging.info("One or more nodes failed to validate the transaction.")
+            pass
 
     
     def verify_signature(self, transaction_id, sender_address, signature):
@@ -158,10 +166,10 @@ class Node:
                 ),
                 hashes.SHA256()
             )
-            print("Signature verification successful.")
+            #logging.info("Signature verification successful.")
             return True
         except Exception as e:
-            print(f"Signature verification failed: {e}")
+            #logging.info(f"Signature verification failed: {e}")
             return False
         
 
@@ -181,18 +189,24 @@ class Node:
             coins_needed = transaction_dict['amount'] + 0.03 * transaction_dict['amount']  #+3% charge
         elif transaction_dict['type'] == 'message':
             coins_needed = len(transaction_dict['message'])
+        # for stake
+        elif transaction_dict['type'] == 'stake':
+            print("Validated Stake Transaction")
+            coins_needed = transaction_dict['amount']
+            #return True
         else:
-            print('Wrong type of transaction.')
+            #logging.info('Wrong type of transaction.')
             return False
+        # if stake return true
         
         sender_dict = self.node_ring[transaction_dict['sender_address']]
         balance = sender_dict['balance']
         stake = sender_dict['stake']
         if coins_needed > balance + stake:  
-            print('Sender does not have enough coins.')
+            #logging.info('Sender does not have enough coins.')
             return False
         else:
-            print('Sender okay to send.')
+            #logging.info('Sender okay to send.')
             
             # If login is done, we keep the transaction. 
             # Afterwards, we check if we need to mint a block.
@@ -207,10 +221,11 @@ class Node:
                 trans = Transaction(sender_address = sender, receiver_address=receiver, type_of_transaction=type, nonce = n, amount=am, message=msg, id=id)
 
                 # Update the sender balance.
-                node_dict = self.node_ring[sender] 
-                node_dict['balance'] -= trans.transaction_amount()
+                if type != 'stake':
+                    node_dict = self.node_ring[sender] 
+                    node_dict['balance'] -= trans.transaction_amount()
 
-                print('balances after trans', [node['balance'] for k,node in self.node_ring.items()])
+                #logging.info('balances after trans', [node['balance'] for k,node in self.node_ring.items()])
 
                 # Add the recieved transaction, only if it has not been seen in a previous block!
                 if id not in self.seen:    
@@ -220,7 +235,8 @@ class Node:
                         self.mint_block()
                         self.transactions = []
                     else:
-                        print('Not minting because transaction length is: ', len(self.transactions))
+                        pass
+                        #logging.info('Not minting because transaction length is: ', len(self.transactions))
 
             return True
 
@@ -250,12 +266,20 @@ class Node:
         return True
     
     def update_recipient_balances(self,block):
-        print('Validating block from minter', block.validator)
+        #logging.info('Validating block from minter', block.validator)
         for trans in block.transactions:
             # delete from list of pending transactions, if its still there.
-            for i in range(len(self.transactions)):
+
+            #previous code
+            #for i in range(len(self.transactions)):
+                #if self.transactions[i].transaction_id == trans.transaction_id:
+                    #del self.transactions[i]
+            i = 0  
+            while i < len(self.transactions):
                 if self.transactions[i].transaction_id == trans.transaction_id:
                     del self.transactions[i]
+                    continue  
+                i += 1  
 
             if trans.transaction_id not in self.seen:
                 if trans.type_of_transaction == 'coins':
@@ -269,6 +293,11 @@ class Node:
                     # Give 3% to the block validator
                     validator = block.validator
                     self.node_ring[validator]['balance'] += amount*0.03
+                #for stake
+                elif trans.type_of_transaction == 'stake':
+                    sender = trans.as_serialised_dict()['sender_address']
+                    self.node_ring[sender]['stake'] = amount
+                    print("Stake Updated")
 
                 self.seen.add(trans.transaction_id)
 
@@ -313,38 +342,58 @@ class Node:
             self.create_transaction(self.wallet.public_key, pubkey, 'coins', 1000)
 
         #when all nodes are added, broadcast the node ring
+        #for debugginh
+        #logging.info("Node ring items: "+str(len(self.node_ring.items())))
+        #logging.info("NNodes: " + str(self.nnodes))
         if len(self.node_ring.items()) == self.nnodes:
             self.broadcast_node_ring()
 
             #add code to broadcast the blockchain
-            print(self.blockchain.as_serialised_dict())
+            #logging.info(self.blockchain.as_serialised_dict())
             self.broadcast_blockchain()
             
             # Let the nodes know that they can start the transactions, by setting a boolean flag.
+            #for debuggin
+            #logging.info("---------------- Nodes Reached add_to_ring --------------------------")
             self.initiate_transactions() 
 
     def initiate_transactions(self):
+        # for debugging
+        #logging.info("====================== Initiate was called =====================")
         self.login_complete = True
         self.start_transactions = True
+        #for debug
+        #print("Len of ring items: " + str(len(self.node_ring.items())))
+        #print(self.node_ring.items())
         for k,node in self.node_ring.items():
+            #for debug
+            #print("K: "+ str(k))
+            #print(node)
+            #logging.info("============================= Inside the loop in initiate_transactions =======================")
             if node['pubkey'] != self.wallet.pubkey_serialised():
+                #for debug
+                #logging.info("================== Inside the if in initiate transactions ================")
                 url = f"http://{node['ip_addr']}:{node['port']}/start_transactions"
                 try:
                     response = requests.post(url)
-                    '''if response.status_code == 200:
-                        print(f"Transactions start successfully on {node['ip_addr']}")
+                    #logging.info("Response status code: " + str(response.status_code))
+                    if response.status_code == 200:
+                        #logging.info(f"Transactions start successfully on {node['ip_addr']}")
+                        pass
                     else:
-                        print(f"Failed to start transactions on {node['ip_addr']}")'''
+                        pass
+                       #logging.info(f"Failed to start transactions on {node['ip_addr']}")
                     #print(f"Node responded: {response.json()}")
                 except Exception as e:
-                    print(f"Error starting transactions on {node['ip_addr']}: {e}")
-
+                    logging.info(f"Error starting transactions on {node['ip_addr']}: {e}")
+                    pass
+        #self.create_cli()
         self.test()
 
     # Send a test transaction after we initiate them.
     def test(self):
-        print('Login is', self.login_complete)
-        print('Transactions are', self.start_transactions)
+        #logging.info('Login is', self.login_complete)
+        #logging.info('Transactions are', self.start_transactions)
 
         # Hardcoded transactions for debugging
         '''rec = list(self.node_ring.values())[1]['pubkey']
@@ -361,9 +410,10 @@ class Node:
         id = self.node_ring[self.wallet.pubkey_serialised()]['id']
         number_part = id[2:]  # Get input file name
         # TODO change this directory if its working on linux
-        input_file = 'code\\input\\trans' + number_part + '.txt'
-        self.parse_file(input_file)
-
+        input_file = 'code/input/trans' + number_part + '.txt'
+        #self.parse_file(input_file)
+        #logging.info("================================================================")
+        #self.create_cli()
     # Helper that parses the input file, gets the messages from each line, and sends them as transactions.
     def parse_file(self, input_file):
         with open(input_file, 'r') as file:
@@ -407,7 +457,7 @@ class Node:
                         print(f"Failed to broadcast to {node['ip_addr']}")'''
                     #print(f"Node responded: {response.json()}")
                 except Exception as e:
-                    print(f"Error broadcasting to {node['ip_addr']}: {e}")
+                    logging.info(f"Error broadcasting to {node['ip_addr']}: {e}")
 
     #bootstrap calls it
     def broadcast_blockchain(self):
@@ -417,16 +467,21 @@ class Node:
         blockchain_json = json.dumps(blockchain_data)
         for k,node in self.node_ring.items():
             if node['pubkey'] != self.wallet.pubkey_serialised():
+                # for debuggin
+                #logging.info("==================== Inside the broadcast_blockchain ================")
                 url = f"http://{node['ip_addr']}:{node['port']}/update_blockchain"
                 try:
                     response = requests.post(url, json=blockchain_json)
-                    '''if response.status_code == 200:
-                        print(f"Blockchain broadcasted successfully to {node['ip_addr']}")
+                    if response.status_code == 200:
+                        #logging.info(f"Blockchain broadcasted successfully to {node['ip_addr']}")
+                        pass
                     else:
-                        print(f"Failed to broadcast blockchain to {node['ip_addr']}")
-                    print(f"Node responded: {response.json()}")'''
+                        #logging.info(f"Failed to broadcast blockchain to {node['ip_addr']}")
+                        pass
+                    #logging.info(f"Node responded: {response.json()}")
                 except Exception as e:
-                    print(f"Error broadcasting blockchain to {node['ip_addr']}: {e}")
+                    pass
+                    #logging.info(f"Error broadcasting blockchain to {node['ip_addr']}: {e}")
 
     # Helper for mint_block random sampling
     # Runs the rulette that picks the validator, based on the stakes.
@@ -461,8 +516,9 @@ class Node:
         #PoS -> validator will create block with transactions and broadcast it -> nodes will validate it and receivers will update their wallets
         
         # If the node login phase is not yet completed, then the validator will always be the bootstrap node.
-        
+        #print("test mint")
         if not self.login_complete:
+            #print("mint not complete")
             i=len(self.blockchain.blocks)
             t=list(self.transactions)
             val=self.wallet.pubkey_serialised()
@@ -474,11 +530,13 @@ class Node:
             # Empty the transactions
             self.transactions = []
         else: # Login phase is over, so we mint by drawing a random generator.
+            #print("mint complete")
             validator_pk = self.rulette(prev_hash=self.blockchain.blocks[-1].current_hash)
             # If validator is myself, I create a block and broadcast it, identical to above. 
             # Else nothing happens.            
             if self.wallet.pubkey_serialised() == validator_pk:
-                print('I AM VALIDATING BLOCK')
+                #print("validator")
+                #logging.info('I AM VALIDATING BLOCK')
                 i=len(self.blockchain.blocks)
                 t=list(self.transactions)
                 val=self.wallet.pubkey_serialised()
@@ -489,7 +547,11 @@ class Node:
                 self.blockchain.add_block_to_chain(block)
 
                 if self.validate_block(block, prev_block=self.blockchain.blocks[-2]):
+                    print("Validated")
                     self.broadcast_block(block)
+                else:
+                    print("Error while validating")
+           
 
         return
 
@@ -506,6 +568,120 @@ class Node:
                         print(f"Block broadcasted successfully to {node['ip_addr']}")
                     else:
                         print(f"Failed to broadcast block to {node['ip_addr']}")
-                    print(f"Node responded: {response.json()}")
+                        print(f"Node responded: {response.json()}")
                 except Exception as e:
                     print(f"Error broadcasting block to {node['ip_addr']}: {e}")
+                
+
+
+    def print_help(self):
+        print("-----------------------------------------------------------------------------------------------------------\n")
+        print("t <recipient_address> <coins> : Create a new transaction. Send to <recipient_address> a number of <coins>.\n")
+        print("t <recipient_address> <message> : Create a new transaction. Send to <recipient_address> a <message>.\n")
+        print("stake <amount> : Set the node stake. Set an <amount> of coins for the node's staking.\n")
+        print("view : View the transactions of the last validated block in the blockchain as well as its validator's id.\n")
+        print("balance : See the balance of your wallet.\n")
+        print("-----------------------------------------------------------------------------------------------------------\n")
+
+    #for stake
+    def set_stake(self,stake_amount):
+        sender = self.wallet.public_key
+        receiver = 0
+        print("New stake: " + str(stake_amount))
+        self.create_transaction(sender_address=sender, receiver_address=receiver, type_of_transaction='stake',amount=stake_amount,message=None)
+
+    def view_block(self):
+        print("\n")
+        number_of_transactions = 1
+        for trans in self.blockchain.blocks[-1].block_transactions():
+            print("------------------------------ Transaction " + str(number_of_transactions)+ " ------------------------------\n")
+            trans.view_transaction()
+            number_of_transactions = number_of_transactions + 1
+            print("\n")
+        print("------------------------------------------------------------------------\n")
+        print("Block's Validator: " + str(self.blockchain.blocks[-1].block_validator()))
+
+
+    def show_balance(self):
+        print("Balance: " + str(self.node_ring[self.wallet.pubkey_serialised()]['balance']))
+
+    def cli_create_transaction(self, recipient, mess):
+        print("Recipient: " + str(recipient))
+        print("Message: " + str(mess))
+        try:
+            amount = float(mess)
+            if amount.is_integer():
+                amount = int(amount)
+                cli_type_of_transaction = 'coins'
+                cli_amount = amount
+                cli_message = None
+        except ValueError:
+            cli_type_of_transaction = 'message'
+            cli_amount = None
+            cli_message = mess
+
+        cli_recipient_address = None
+        recipient_id = 'id'+ recipient
+        for pk, node_dict in self.node_ring.items():
+            if node_dict['id'] == recipient_id:
+                cli_recipient_address = pk
+                break
+        cli_sender_address = self.wallet.public_key
+        self.create_transaction(sender_address=cli_sender_address, receiver_address=cli_recipient_address, type_of_transaction=cli_type_of_transaction,amount=cli_amount,message=cli_message)
+
+
+    def create_cli(self):
+        parser = argparse.ArgumentParser(description="Blockchain CLI", add_help=False)
+        subparsers = parser.add_subparsers()
+
+        parser_t = subparsers.add_parser('t', help='New transaction or message')
+        parser_t.add_argument('recipient_address', type=str, help='Recipient address')
+        parser_t.add_argument('message', type=str, help='Message')
+        parser_t.set_defaults(func=self.cli_create_transaction)
+
+        parser_stake = subparsers.add_parser('stake', help='Set the node stake')
+        parser_stake.add_argument('amount', type=float, help='Stake amount')
+        parser_stake.set_defaults(func=self.set_stake)
+
+        parser_view = subparsers.add_parser('view', help='View last block')
+        parser_view.set_defaults(func=self.view_block)
+
+        parser_balance = subparsers.add_parser('balance', help='Show balance')
+        parser_balance.set_defaults(func=self.show_balance)
+
+        parser_help = subparsers.add_parser('help', help='Print help')
+        parser_help.set_defaults(func=self.print_help)
+
+        while True:
+            try:
+             input_string = input("Blockchain CLI: ")
+            except EOFError:
+                break  # Exit on Ctrl-D
+
+            if input_string.lower() in ["exit", "quit"]:
+                print("Exiting...")
+                break  # Exit loop
+
+    # Split the input into arguments
+            argv = input_string.split()
+            #print(argv)
+
+    # Check if the input is not empty and prepend a dummy script name
+            if argv:
+                #argv = ['main.py'] + argv
+                argv=argv
+            else:
+                print("No command entered. Please enter a command.")
+                continue
+
+    # Parse the arguments
+            try:
+                args = parser.parse_args(argv)  # Parse arguments without a dummy script name
+                if hasattr(args, 'func'):
+                    arg_values = list(vars(args).values())[:-1]  # Exclude the last argument
+                    #print(*arg_values)
+                    args.func(*arg_values) 
+                else:
+                    parser.print_help()
+            except SystemExit:
+                continue
