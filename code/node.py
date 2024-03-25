@@ -52,10 +52,12 @@ class Node:
         
         signature = transaction.sign_transaction(self.wallet.private_key) #byte format
         if self.start_transactions:
+            '''
             if transaction.type_of_transaction != 'stake':
                 node_dict = self.node_ring[self.wallet.pubkey_serialised()]
                 node_dict['balance'] -= transaction.transaction_amount(is_boot_transaction = not self.start_transactions)
                 self.wallet.coins -= transaction.transaction_amount(is_boot_transaction = not self.start_transactions)
+            '''
             self.broadcast_transaction(transaction, signature)
         else: #the boot transactions
             self.transactions.append(transaction)
@@ -124,13 +126,12 @@ class Node:
         if all(validation_statuses):
             #logging.info("All nodes validated the transaction.")
             self.transactions.append(transaction)
-            self.nonce+= 1
-            '''
+            self.nonce+= 1     
             if transaction.type_of_transaction != 'stake':
                 node_dict = self.node_ring[self.wallet.pubkey_serialised()]
                 node_dict['balance'] -= transaction.transaction_amount(is_boot_transaction = not self.start_transactions)
                 self.wallet.coins -= transaction.transaction_amount(is_boot_transaction = not self.start_transactions)
-            '''
+            
                 
 
             #logging.info([node['balance'] for k,node in self.node_ring.items()])
@@ -245,8 +246,8 @@ class Node:
         # Run through the transactions of the block and update the recipient balances.
         if self.login_complete:
             self.update_recipient_balances(block)
-        time.sleep(3)
-        print('balances after blcok validate ',[node['balance'] for k,node in self.node_ring.items()])            
+        
+        #print('balances after blcok validate ',[node['balance'] for k,node in self.node_ring.items()])            
         return True
     
     def update_recipient_balances(self,block):
@@ -426,20 +427,26 @@ class Node:
     def parse_file(self, input_file):
         with open(input_file, 'r') as file:
             lines = file.readlines()
+        #print(1)
         
         # Regular expression pattern to match 'id' followed by a number and the message
         pattern = r'id(\d+)\s(.+)'
         id_str = None
         message_str = None
-
+        #print(2)
+        found_id =False
         for line in lines:
             # Use regular expression to find matches
             match = re.match(pattern, line)
             if match:
+                #print(3)
                 # Extract id and message from the match
                 id_str = 'id'+match.group(1)
                 message_str = match.group(2)
-            
+
+            if id_str > 'id1':
+                continue
+
             recipient_pk = None
             # Retrieve the recipient public key, by its id
             for pk, node_dict in self.node_ring.items():
@@ -616,6 +623,7 @@ class Node:
         print("stake <amount> : Set the node stake. Set an <amount> of coins for the node's staking.\n")
         print("view : View the transactions of the last validated block in the blockchain as well as its validator's id.\n")
         print("balance : See the balance of your wallet.\n")
+        print("all_balances : See the balances of all the nodes in the network.\n")
         print("-----------------------------------------------------------------------------------------------------------\n")
 
     #for stake
@@ -664,6 +672,8 @@ class Node:
         cli_sender_address = self.wallet.public_key
         self.create_transaction(sender_address=cli_sender_address, receiver_address=cli_recipient_address, type_of_transaction=cli_type_of_transaction,amount=cli_amount,message=cli_message)
 
+    def show_all_balances(self):
+        print([(node['id'], node['balance']) for k,node in self.node_ring.items()])   
 
     def create_cli(self):
         parser = argparse.ArgumentParser(description="Blockchain CLI", add_help=False)
@@ -683,6 +693,9 @@ class Node:
 
         parser_balance = subparsers.add_parser('balance', help='Show balance')
         parser_balance.set_defaults(func=self.show_balance)
+
+        parser_all_balances = subparsers.add_parser('all_balances', help='Show all balances')
+        parser_all_balances.set_defaults(func=self.show_all_balances)
 
         parser_help = subparsers.add_parser('help', help='Print help')
         parser_help.set_defaults(func=self.print_help)

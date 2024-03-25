@@ -41,26 +41,7 @@ def deserialize(block_list):
     result = []
 
     for ser_block in block_list:
-        #ser_block = json.loads(ser_block)
-        index = ser_block['index']
-        timestamp = ser_block['timestamp']
-        validator = ser_block['validator']
-        previous_hash = ser_block['previous_hash']
-        current_hash = ser_block['current_hash']
-
-        transactions = []
-        for transaction_dict in ser_block['transactions']:
-            sender = transaction_dict['sender_address']
-            receiver = transaction_dict["receiver_address"]
-            type = transaction_dict["type"]
-            n = transaction_dict['nonce']
-            am = transaction_dict['amount']
-            msg = transaction_dict['message']
-            id = transaction_dict['transaction_id']
-            trans = Transaction(sender_address = sender, receiver_address=receiver, type_of_transaction=type, nonce = n, amount=am, message=msg, id=id)
-            transactions.append(trans)
-       
-        block = Block(index=index, transactions=transactions, validator=validator, previous_hash=previous_hash, t=timestamp, hash=current_hash)
+        block = deserialize_block(ser_block)
         result.append(block)
 
     return result
@@ -72,27 +53,16 @@ def deserialize_block(ser_block):
     previous_hash = ser_block['previous_hash']
     current_hash = ser_block['current_hash']
 
-    transactions = []
-    for transaction_dict in ser_block['transactions']:
-        sender = transaction_dict['sender_address']
-        receiver = transaction_dict["receiver_address"]
-        type = transaction_dict["type"]
-        n = transaction_dict['nonce']
-        am = transaction_dict['amount']
-        msg = transaction_dict['message']
-        id = transaction_dict['transaction_id']
-        trans = Transaction(sender_address = sender, receiver_address=receiver, type_of_transaction=type, nonce = n, amount=am, message=msg, id=id)
-        transactions.append(trans)
-       
+    transactions = deserialize_transactions(ser_block['transactions'])
+
     block = Block(index=index, transactions=transactions, validator=validator, previous_hash=previous_hash, t=timestamp, hash=current_hash)
     return block
 
-def deserialize_transactions(transactions_json):
+def deserialize_transactions(transactions_list):
     """
     Returns:
         list: A list of Transaction objects.
     """
-    transactions_list = json.loads(transactions_json)
     deserialized_transactions = []
 
     # Loop through each transaction dictionary in the list
@@ -173,7 +143,8 @@ def receive_transaction():
 def receive_boot_transactions():
     global node  
     transactions_json = request.json.get('transactions')
-    node.transactions = deserialize_transactions(transactions_json)
+    transactions_list = json.loads(transactions_json)
+    node.transactions = deserialize_transactions(transactions_list)
     for trans in node.transactions:
         node.seen.add(trans.transaction_id)
     return jsonify({"message": "Boot transactions received successfully."}), 200
