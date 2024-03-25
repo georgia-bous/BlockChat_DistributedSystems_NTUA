@@ -72,6 +72,33 @@ class Transaction:
             return total
         elif self.type_of_transaction == 'message':
             return len(self.message)
+        # for stake
+        elif self.type_of_transaction == 'stake':
+            return self.amount ####0 before
         else:
             print('Invalid type of transaction.')
             return 0
+        
+    def view_transaction(self):
+        sender = self.sender_address.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode('utf-8') if not isinstance(self.sender_address, (int,str)) else self.sender_address
+
+        receiver = self.receiver_address.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode('utf-8') if not isinstance(self.receiver_address, (int,str)) else self.receiver_address
+
+        print("ID: "+ str(self.transaction_id))
+        print("Type: "+ str(self.type_of_transaction))
+        if self.type_of_transaction == 'coins':
+            print("Amount: " + str(self.amount))
+        elif self.type_of_transaction == 'message':
+            print("Message: "+ str(self.message))
+        # for stake
+        elif self.type_of_transaction == 'stake':
+            print("New stake: "+ str(self.amount))
+        print("Sender: " + str(sender))
+        print("Receiver: "+ str(receiver))
+        
