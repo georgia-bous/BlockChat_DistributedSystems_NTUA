@@ -14,39 +14,37 @@ from typing import List, Any , Optional
 from multiprocessing import Process
 import logging
 
+
+user_input = input('Enter the details (host IP, host port, capacity, number of nodes, stake, is bootstrap [yes/no]): ')
+# Split the input string by space
+inputs = user_input.split(' ')
+
+host = inputs[0].strip()
+host_port = int(inputs[1].strip())
+capacity = int(inputs[2].strip())
+nnodes = int(inputs[3].strip())
+stake = int(inputs[4].strip())
+is_bootstrap = inputs[5].strip().lower() == 'yes'
+
+ip_addr = '127.0.0.1'
 '''
-#for input from cli, not ready yet
-# Create the parser
-parser = argparse.ArgumentParser(description='Node Configuration')
-
-# Add arguments
-parser.add_argument('--ip', type=str, default='127.0.0.1', help='IP address of the node')
-parser.add_argument('--port', type=int, help='Port on which the node runs')
-parser.add_argument('--capacity', type=int, default=5, help='Capacity of the node')
-parser.add_argument('--n', type=int, default=2, help='Number of nodes to add to the network')
-parser.add_argument('--is_bootstrap', action='store_true', help='Flag to indicate if the node is a bootstrap node')
-
-# Parse the arguments
-args = parser.parse_args()
-
-# Assign the arguments to variables
-ip_addr = args.ip
-port = args.port
-capacity = args.capacity
-n = args.n
-is_bootstrap = args.is_bootstrap
+#linux, get ip of each machine
+import os
+# Command to get the IP address for `eth0` interface
+ip_addr = os.popen('ip addr show eth0 | grep "inet\b" | awk \'{print $2}\' | cut -d/ -f1').read().strip()
+print(f"IP Address: {ip_addr}")
 '''
+port = 12346
 
+'''
 host = '127.0.0.1'
 host_port = 12345 
 
-ip_addr = '127.0.0.1'
-port = 12346
 is_bootstrap = False
 nnodes=2
 stake = 10
 capacity = 3
-
+'''
 
 app = Flask(__name__)
 api = Api(app)
