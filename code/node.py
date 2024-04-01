@@ -447,8 +447,8 @@ class Node:
         id = self.node_ring[self.wallet.pubkey_serialised()]['id']
         number_part = id[2:]  # Get input file name
         # TODO change this directory if its working on linux
-        input_file = 'code/input/trans' + number_part + '.txt'
-        #self.parse_file(input_file)
+        input_file = 'code/5nodes/trans' + number_part + '.txt'
+        self.parse_file(input_file)
         #logging.info("================================================================")
         #self.create_cli()
     
@@ -470,8 +470,8 @@ class Node:
                 id_str = 'id'+match.group(1)
                 message_str = match.group(2)
 
-            if id_str > 'id1':
-                continue
+            #if id_str > 'id1':
+                #continue
 
             recipient_pk = None
             # Retrieve the recipient public key, by its id
@@ -481,8 +481,8 @@ class Node:
                     break
             
             # TODO change this if we are running with more nodes.
-            if id_str <= 'id2':
-                self.create_transaction(self.wallet.public_key, recipient_pk, 'message',message=message_str)
+            #if id_str <= 'id2':
+            self.create_transaction(self.wallet.public_key, recipient_pk, 'message',message=message_str)
 
     '''
     #bootstrap calls it
