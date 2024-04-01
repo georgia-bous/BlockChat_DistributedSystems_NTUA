@@ -15,18 +15,19 @@ from multiprocessing import Process
 import logging
 
 
-user_input = input('Enter the details (host IP, host port, capacity, number of nodes, stake, is bootstrap [yes/no]): ')
+user_input = input('Enter the details (host IP, host port, IP address, capacity, number of nodes, stake, is bootstrap [yes/no]): ')
 # Split the input string by space
 inputs = user_input.split(' ')
 
 host = inputs[0].strip()
 host_port = int(inputs[1].strip())
-capacity = int(inputs[2].strip())
-nnodes = int(inputs[3].strip())
-stake = int(inputs[4].strip())
-is_bootstrap = inputs[5].strip().lower() == 'yes'
+ip_addr = int(inputs[2].strip())
+capacity = int(inputs[3].strip())
+nnodes = int(inputs[4].strip())
+stake = int(inputs[5].strip())
+is_bootstrap = inputs[6].strip().lower() == 'yes'
 
-ip_addr = '127.0.0.1'
+#ip_addr = '127.0.0.1'
 '''
 #linux, get ip of each machine
 import os
