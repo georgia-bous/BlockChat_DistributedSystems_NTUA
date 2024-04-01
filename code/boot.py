@@ -60,7 +60,7 @@ def main():
 
     if is_bootstrap :
         node.id = 'id0'
-        node.add_to_ring(host, node.wallet.pubkey_serialised(), host_port, node.id)
+        node.add_to_ring(host, node.wallet.pubkey_serialised(), host_port, stake, node.id)
         first_transaction = node.create_transaction(0, node.wallet.public_key, 'coins', 1000*nnodes)
         genesis_block = Block(index=0, transactions=[first_transaction], validator=0, previous_hash='1')
         node.blockchain.add_block_to_chain(genesis_block) #no validation for genesis
@@ -72,7 +72,8 @@ def main():
         my_data = {
             'ip_address': ip_addr,
             'port': port,
-            'pubkey': node.wallet.pubkey_serialised()
+            'pubkey': node.wallet.pubkey_serialised(),
+            'stake': stake
         }
         bootstrap_url = f'http://{host}:{host_port}/register_node'
         response = requests.post(bootstrap_url, json=my_data)

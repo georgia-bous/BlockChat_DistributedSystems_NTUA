@@ -22,8 +22,9 @@ def register_node():
     node_ipaddr = data['ip_address']
     node_port = data['port']
     node_pubkey = data['pubkey']
+    node_stake = data['stake']
     node_id = 'id' + str(len(node.node_ring))
-    node.add_to_ring(node_ipaddr, node_pubkey, node_port, node_id)
+    node.add_to_ring(node_ipaddr, node_pubkey, node_port, node_stake, node_id)
     #logging.info(node.wallet.coins)
     return jsonify({"message": "Node registered successfully", "id": len(node.node_ring)-1}), 200
 
@@ -142,9 +143,9 @@ def receive_transaction():
 @bp.route('/receive_boot_transactions', methods=['POST'])
 def receive_boot_transactions():
     global node  
-    transactions_json = request.json.get('transactions')
-    transactions_list = json.loads(transactions_json)
-    node.transactions = deserialize_transactions(transactions_list)
+    transactions_json = request.json['transactions']  # request.json is already a dictionary
+    # Assuming deserialize_transactions can directly handle the list of dictionaries
+    node.transactions = deserialize_transactions(transactions_json)
     for trans in node.transactions:
         node.seen.add(trans.transaction_id)
     return jsonify({"message": "Boot transactions received successfully."}), 200
