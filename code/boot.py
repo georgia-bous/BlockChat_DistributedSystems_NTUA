@@ -21,7 +21,7 @@ inputs = user_input.split(' ')
 
 host = inputs[0].strip()
 host_port = int(inputs[1].strip())
-ip_addr = int(inputs[2].strip())
+ip_addr = inputs[2].strip()
 capacity = int(inputs[3].strip())
 nnodes = int(inputs[4].strip())
 stake = int(inputs[5].strip())
