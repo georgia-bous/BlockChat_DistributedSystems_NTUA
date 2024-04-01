@@ -15,17 +15,18 @@ from multiprocessing import Process
 import logging
 
 
-user_input = input('Enter the details (host IP, host port, IP address, capacity, number of nodes, stake, is bootstrap [yes/no]): ')
+user_input = input('Enter the details (host IP, host port, IP address, port, capacity, number of nodes, stake, is bootstrap [yes/no]): ')
 # Split the input string by space
 inputs = user_input.split(' ')
 
 host = inputs[0].strip()
 host_port = int(inputs[1].strip())
 ip_addr = inputs[2].strip()
-capacity = int(inputs[3].strip())
-nnodes = int(inputs[4].strip())
-stake = int(inputs[5].strip())
-is_bootstrap = inputs[6].strip().lower() == 'yes'
+port = int(inputs[3].strip())
+capacity = int(inputs[4].strip())
+nnodes = int(inputs[5].strip())
+stake = int(inputs[6].strip())
+is_bootstrap = inputs[7].strip().lower() == 'yes'
 
 #ip_addr = '127.0.0.1'
 '''
@@ -35,7 +36,7 @@ import os
 ip_addr = os.popen('ip addr show eth0 | grep "inet\b" | awk \'{print $2}\' | cut -d/ -f1').read().strip()
 print(f"IP Address: {ip_addr}")
 '''
-port = 12346
+#port = 12346
 
 '''
 host = '127.0.0.1'
