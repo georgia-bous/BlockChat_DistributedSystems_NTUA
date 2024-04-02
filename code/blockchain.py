@@ -11,3 +11,6 @@ class Blockchain:
         result = {}
         result['blockchain'] = [block.as_serialised_dict() for block in self.blocks]
         return result
+
+    def number_of_blocks_in_blockchain(self):
+        return len(self.blocks)
