@@ -462,6 +462,8 @@ class Node:
         id_str = None
         message_str = None
         found_id =False
+        start_time = time.time()
+        number_of_transactions=0
         for line in lines:
             # Use regular expression to find matches
             match = re.match(pattern, line)
@@ -483,6 +485,12 @@ class Node:
             # TODO change this if we are running with more nodes.
             #if id_str <= 'id2':
             self.create_transaction(self.wallet.public_key, recipient_pk, 'message',message=message_str)
+            number_of_transactions = number_of_transactions + 1
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        tps = number_of_transactions / elapsed_time
+        print("Transactions per second (TPS):", tps)
 
     '''
     #bootstrap calls it
