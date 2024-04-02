@@ -39,6 +39,7 @@ class Node:
         self.bootstrap_pk = None
         self.seen = set()
         self.block_elapsed_time = 0 # for calculating average block time.
+        self.number_of_blocks_validated = 0 # for calculating the "fairness" metric
 
         logging.basicConfig(filename='app.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -450,6 +451,8 @@ class Node:
         # TODO change this directory if its working on linux
         input_file = '5nodes/trans' + number_part + '.txt'
         self.parse_file(input_file)
+        print("Number of Blocks Validated: ", self.number_of_blocks_validated)
+
         #logging.info("================================================================")
         #self.create_cli()
     
@@ -608,6 +611,7 @@ class Node:
                 if self.validate_block(block, prev_block=self.blockchain.blocks[-1]):
                     #print("Validated")
                     self.broadcast_block(block)
+                    self.number_of_blocks_validated = self.number_of_blocks_validated + 1
                 else:
                     print("Error while validator validating")
                     
