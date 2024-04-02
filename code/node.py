@@ -38,6 +38,7 @@ class Node:
         self.start_transactions = False
         self.bootstrap_pk = None
         self.seen = set()
+        self.block_elapsed_time = 0 # for calculating average block time.
 
         logging.basicConfig(filename='app.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
@@ -490,7 +491,10 @@ class Node:
         end_time = time.time()
         elapsed_time = end_time - start_time
         tps = number_of_transactions / elapsed_time
-        print("Transactions per second (TPS):", tps)
+        block_time = self.block_elapsed_time / self.blockchain.number_of_blocks_in_blockchain()
+        print("Transactions per second (TPS): ", tps)
+        print("Average Block Time: ", block_time)
+
 
     '''
     #bootstrap calls it
@@ -571,6 +575,7 @@ class Node:
         
         # If the node login phase is not yet completed, then the validator will always be the bootstrap node.
         #print("test mint")
+        start_time = time.time()
         if not self.login_complete:
             #print("mint not complete")
             i=len(self.blockchain.blocks)
@@ -605,7 +610,10 @@ class Node:
                     self.broadcast_block(block)
                 else:
                     print("Error while validator validating")
-
+                    
+        end_time = time.time()
+        self.block_elapsed_time = self.block_elapsed_time + (end_time - start_time)
+        
         return
 
     def send_block_to_node(self, node, block_json):
