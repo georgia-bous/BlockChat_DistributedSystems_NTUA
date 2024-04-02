@@ -449,7 +449,7 @@ class Node:
         id = self.node_ring[self.wallet.pubkey_serialised()]['id']
         number_part = id[2:]  # Get input file name
         # TODO change this directory if its working on linux
-        input_file = '5nodes/trans' + number_part + '.txt'
+        input_file = 'input/trans' + number_part + '.txt'
         self.parse_file(input_file)
         print("Number of Blocks Validated: ", self.number_of_blocks_validated)
 
