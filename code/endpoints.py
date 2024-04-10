@@ -1,5 +1,4 @@
 from flask import request, jsonify
-#from boot import app, genesis_block
 from flask import Blueprint, g
 from blockchain import Blockchain
 from transaction import Transaction
@@ -99,7 +98,6 @@ def update_blockchain():
 
     node.blockchain = blockchain
     #logging.info(node.blockchain)  
-    #for debugging
     #logging.info("------------------------ update -------------------")
     return jsonify({"message": "Blockchain updated successfully"}), 200
 
@@ -143,8 +141,7 @@ def receive_transaction():
 @bp.route('/receive_boot_transactions', methods=['POST'])
 def receive_boot_transactions():
     global node  
-    transactions_json = request.json['transactions']  # request.json is already a dictionary
-    # Assuming deserialize_transactions can directly handle the list of dictionaries
+    transactions_json = request.json['transactions']
     node.transactions = deserialize_transactions(transactions_json)
     for trans in node.transactions:
         node.seen.add(trans.transaction_id)

@@ -1,17 +1,9 @@
-#from node import Node
 from block import Block
-from transaction import Transaction
-
 from flask import Flask
-from flask_restful import Api, Resource
+from flask_restful import Api
 import requests
 from threading import Thread
 from endpoints import bp, node
-from blockchain import Blockchain
-from flask import g
-import argparse
-from typing import List, Any , Optional
-from multiprocessing import Process
 import logging
 
 
@@ -29,13 +21,6 @@ stake = int(inputs[6].strip())
 is_bootstrap = inputs[7].strip().lower() == 'yes'
 
 #ip_addr = '127.0.0.1'
-'''
-#linux, get ip of each machine
-import os
-# Command to get the IP address for `eth0` interface
-ip_addr = os.popen('ip addr show eth0 | grep "inet\b" | awk \'{print $2}\' | cut -d/ -f1').read().strip()
-print(f"IP Address: {ip_addr}")
-'''
 #port = 12346
 
 '''
@@ -88,7 +73,6 @@ def main():
 def run_flask_app():
     global ip_addr
     global port
-    #app.debug = True
     app.run(host= ip_addr, port=port, debug=True,use_reloader=False)
 
 if __name__ =="__main__":
